@@ -47,10 +47,6 @@ class IpoBot(commands.Bot):
             await self.change_presence(status=discord.Status.online,
                                        activity=discord.Activity(type=discord.ActivityType.listening, name="$info"))
 
-        @self.command()
-        async def heypog(ctx):
-            await ctx.send(f"Poggers, {ctx.author.mention}.")
-
         # Moved to on_ready:
         # self.get_quotes.start()
 
