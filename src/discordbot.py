@@ -23,9 +23,20 @@ class IpoBot(commands.Bot):
         self.finnhub_handler = FinnhubIPOHandler(FINNHUB_APIKEY)
 
         @self.command()
-        async def ipocal(ctx, _from, to):
-            ipo_list = self.finnhub_handler.get_ipo_calendar(_from, to)
-            await ctx.send(ctx.author.mention + "\n" + ipo_list)
+        async def ipocal(ctx, _from: str, to: str):
+            try:
+                ipo_list = self.finnhub_handler.get_ipo_calendar(_from, to)
+                if ipo_list is not None:
+                    msg = "IPO Calendar:\n"
+                    for ipo in ipo_list:
+                        msg += f"{ipo['date']}: (${ipo['symbol']}) {ipo['name'].lower().title()} expected at ${ipo['price']}\n"
+                    await ctx.send(ctx.author.mention + "\n" + msg)
+                else:
+                    await ctx.send(ctx.author.mention + "\n" + f"No IPOs found {_from} - {to}")
+            except Exception as exc:
+                msg = f'Error occurred when attempting to fetch the IPO calendar ({_from} - {to})'
+                log('ERROR', msg + f' - Error: {exc}')
+                await ctx.send(ctx.author.mention + "\n" + msg)
 
         @self.command()
         async def sentiment(ctx, symbol):
@@ -34,13 +45,28 @@ class IpoBot(commands.Bot):
 
         @self.command()
         async def quote(ctx, symbol):
-            quote = self.finnhub_handler.get_quote(symbol.upper())
-            await ctx.send(ctx.author.mention + "\n" + quote)
+            symbol = symbol.upper()
+            try:
+                quote_r = self.finnhub_handler.get_quote(symbol)
+                if quote_r is not None:
+                    msg = f"{quote_r['symbol']} Quote:\nDay Open: ${quote_r['day_open']} | " \
+                          f"Day High: ${quote_r['day_high']} | " \
+                          f"Day Low: ${quote_r['day_low']} | " \
+                          f"Current Price: ${quote_r['current_price']}"
+                    await ctx.send(ctx.author.mention + "\n" + msg)
+                else:
+                    await ctx.send(ctx.author.mention + "\n" + f"Could not find a quote for {symbol}")
+            except Exception as exc:
+                msg = f"Error has occurred when attempting to fetch a quote for {symbol}"
+                log("ERROR", msg + f" - Error: {exc}")
+                await ctx.send(ctx.author.mention + "\n" + msg)
 
         @self.command()
         async def info(ctx):
-            await ctx.send(f"Hello {ctx.author.mention}! Here are my commands:\n\n$quote symbol\n$sentiment "
-                           f"symbol\n$ipocal yyyy-mm-dd yyyy-mm-dd")
+            await ctx.send(f"Hello {ctx.author.mention}! Here are my commands:\n"
+                           f"\n$quote SYMBOL"
+                           f"\n$ipocal YYYY-MM-DD YYYY-MM-DD (or) today tomorrow"
+                           f"\n$sentiment SYMBOL (Finnhub Premium)")
 
         @self.command()
         async def forcestatus(ctx):
@@ -56,17 +82,18 @@ class IpoBot(commands.Bot):
 
     async def on_ready(self):
         await self.change_presence(status=discord.Status.idle, activity=discord.Game('Initializing Bot...'))
-        print(f"Initializing Discord bot as {self.user}...\n")
+        log("INFO", f"Initializing Discord bot as {self.user}...")
 
-        print(f"Registering channel IDs with bot...")
+        log("INFO", f"Registering channel IDs with bot")
 
-        self.channels = [self.get_channel(channel_id) for channel_id in DISCORD_BOT_CHANNEL_IDS]
+        self.channels = [self.get_channel(int(channel_id)) for channel_id in DISCORD_BOT_CHANNEL_IDS]
 
         if all(channel is None for channel in self.channels):
-            print(
-                f"Could not register channel IDs... Fatal Error in Program, PROGRAM QUITTING.\nChannels Returned: {self.channels}")
+            log("CRITICAL", f"Could not register channel IDs... Fatal Error in Program, PROGRAM QUITTING -"
+                            f"Channels Returned: {self.channels}")
             await self.close()
         else:
+            log("INFO", f"Channels Registered: {self.channels}")
             await self.change_presence(status=discord.Status.online,
                                        activity=discord.Activity(type=discord.ActivityType.listening, name="$info"))
             self.get_quotes.start()
@@ -76,14 +103,17 @@ class IpoBot(commands.Bot):
         if datetime.datetime.now() >= self.tomorrow:
             self.today = self.tomorrow
             self.tomorrow = self.today + datetime.timedelta(days=1)
-            print(f"\nDay change detected, registering IPO data for {self.today} to {self.tomorrow}...")
+            log("INFO", f"Day change detected, registering IPO data for {self.today} to {self.tomorrow}...")
             await self.change_presence(status=discord.Status.idle, activity=discord.Game('Registering New IPOs...'))
             self.finnhub_handler.set_daily_ipo_data()
             await self.change_presence(status=discord.Status.online,
                                        activity=discord.Activity(type=discord.ActivityType.listening, name="$info"))
 
         quote_count = len(self.finnhub_handler.expected_ipos)
-        print(f'\nFetching price quotes for {quote_count} expected IPO(s)...')
+        if quote_count == 0:
+            return
+
+        log("INFO", f'Fetching price quotes for {quote_count} expected IPO(s) today...')
         start = time.time()
 
         # SPEED UP CHECKS WITH AIOHTTP:
@@ -108,11 +138,11 @@ class IpoBot(commands.Bot):
 
                         # Check if the stock has a valid price:
                         if current_price > 0:
-                            print(f"{symbol} HAS OPENED FOR TRADING!")
+                            log("INFO", f"{symbol} HAS OPENED FOR TRADING!")
                             self.finnhub_handler.opened_ipos.append(ipo)
                             self.finnhub_handler.expected_ipos.remove(ipo)
-                            print(f"Expected IPOs: {self.finnhub_handler.expected_ipos}")
-                            print(f"Opened IPOs: {self.finnhub_handler.opened_ipos}")
+                            log("INFO", f"Expected IPOs: {self.finnhub_handler.expected_ipos}")
+                            log("INFO", f"Opened IPOs: {self.finnhub_handler.opened_ipos}")
                             for channel in self.channels:
                                 if channel is not None:
                                     await channel.send(
@@ -123,11 +153,11 @@ class IpoBot(commands.Bot):
                                             f"\nALL SCHEDULED IPO ARE FINISHED FOR {self.today.strftime('%Y-%m-%d')} - "
                                             f"{self.tomorrow.strftime('%Y-%m-%d')}.")
                                 else:
-                                    print("\nBot failed to send to a channel... Check channel IDs in credentials.")
+                                    log("ERROR", "Bot failed to send to a channel... Check channel IDs in credentials.")
                     else:
-                        print(f"Could not fetch quote for {symbol}. Finnhub Status Code: {quote.status}")
+                        log("ERROR", f"Could not fetch quote for {symbol}. Finnhub Status Code: {quote.status}")
 
-        print(f"{quote_count} IPO checks complete in {round(time.time() - start, 1)} seconds.")
+        log("INFO", f"{quote_count} IPO checks complete in {round(time.time() - start, 1)} seconds.")
 
     @get_quotes.before_loop
     async def before_start_loop(self):
@@ -138,4 +168,4 @@ class IpoBot(commands.Bot):
             self.run(DISCORD_BOT_TOKEN)
         except Exception as exc:
             # LOG.CRITICAL
-            print(f"Could not initialize the discord bot. Error Code:\n{exc}")
+            log("CRITICAL", f"Could not initialize the discord bot. Error Code: {exc}")

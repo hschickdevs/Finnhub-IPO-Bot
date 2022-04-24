@@ -1,12 +1,13 @@
-import logging
 import os
+from datetime import datetime
 
-# Start with fresh logfile
-logfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log.txt')
-if os.path.isfile(logfile):
-    os.remove(logfile)
 
-logging.basicConfig(filename=logfile, level=logging.DEBUG,
-                    format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
+def log(level: str, message: str):
+    """
+    :param level: INFO, ERROR, CRITICAL
+    :param message: The log message
+    """
+    level = level.upper()
+    assert level in ['INFO', 'ERROR', 'CRITICAL']
 
-log = logging.getLogger(__name__)
+    print(f"> {datetime.now().strftime('%m/%d/%Y %H:%M:%S')} | {level} | {message}\n")
