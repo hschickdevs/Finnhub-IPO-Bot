@@ -2,8 +2,8 @@
 
 <!-- PROJECT LOGO -->
 <div align="center">
-  <img src="img/Discord-logo.png" alt="Logo" height="150">
-  <img src="img/finnhub_logo.png" alt="Logo" height="150">
+  <img src="img/discord-logo.png" alt="Discord Logo" height="150">
+  <img src="img/finnhub_logo.png" alt="Finnhub Logo" height="150">
   <br></br>
   <h3 align="center"><strong>Finnhub-IPO-Bot</strong></h3>
   <p align="center">
