@@ -83,6 +83,9 @@ python main.py
     $ipocal today tomorrow
     ```
 
+### Cloud Hosting
+- The required files have been provided in the root directory of the repository to host this bot on [Heroku](https://www.heroku.com/python).
+
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
