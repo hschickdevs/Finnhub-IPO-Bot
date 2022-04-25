@@ -2,8 +2,8 @@
 
 <!-- PROJECT LOGO -->
 <div align="center">
-  <img src="img/discord-logo.png" alt="Discord Logo" height="150" href ="https://discord.com/">
-  <img src="img/finnhub_logo.png" alt="Finnhub Logo" height="150" href="https://finnhub.io/">
+  <a href ="https://discord.com/"><img src="img/discord-logo.png" alt="Discord Logo" height="150"></a>
+  <a href="https://finnhub.io/"><img src="img/finnhub_logo.png" alt="Finnhub Logo" height="150"></a>
   <h3 align="center"><strong>Finnhub-IPO-Bot</strong></h3>
   <p align="center">
     The Discord bot that tracks U.S. stock IPO events using the Finnhub API.
